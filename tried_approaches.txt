@@ -1,0 +1,392 @@
+
+POR PROBAR:
+
+- Monitorizar las métricas de entrenamiento con tensorboard y/o early stopping (habrá que bajar a menos de 40, las épocas del early stopping)
+- Cambiar el número de capas y neuronas de ellas
+- Probar diferentes valores de batch size
+- Dropout / Regularización L2
+- Usar otro optimizador distinto del Adam o modificar los parámetros de él
+- Realizar los conjuntos de entrenamiento y test de manera estratificada
+- Generar más imágenes con data augmentation (si es que no se llega al overfitting)
+- Añadir a posibles imágenes generadas también ruido gaussiano como perturbación
+- Usar alguna otra función de pérdida
+- Normalizar entre -1 y 1 los datos de las imágenes
+- Batch Normalization
+- Inicialización de los pesos de alguna manera
+- Técnicas de pooling de forma manual (como una reducción en el tamaño de las imágenes en cada capa)
+- Crear una función de pérdida que penalice más cuando se falle en clases con pocas imágenes
+
+
+
+
+*Configuración inicial  --> 47% accuracy
+
+* Intento 1º:
+
+    - Subir batch_size desde 16 a 256 para aumentar velocidad de entrenamiento y capacidad de generalización sin eliminar 
+      del todo el ruido estocástico
+
+    - Establecer una estructura de capas Dense después de la Flatten con c, 5c, 10c, 15c, 10c, 5c y c neuronas, siendo c el número 
+      de categorías. Toda capa Dense, salvo la última utiliza Dropout(0.2) y tiene una activación 'relu'
+
+    RESULTADOS: El accuracy oscila únicamente entre 20% y 21% sin mejorar incluso con el paso de las épocas.
+
+* Intento 2º:
+
+    - Reducir la complejidad del modelo y dejar únicamente las capas Dense con c, 5c, 5c y c neuronas
+
+    RESULTADOS: Lo mismo que antes, se piensa que quizá la clave esté en reducir el tamaño de los batch.
+
+* Intento 3º:
+
+    - Reducir el batch size a 64
+    - Se reduce la paciencia del early stopping a sólo 10 épocas en las que no se mejore el valor de la función de 
+      pérdida calculada. De esa forma, pueden cortarse automáticamente ejecuciones no prometedoras y ahorrar tiempo.
+
+      RESULTADOS: Nada cambia, parece que el problema no tenía que ver con el tamaño del batch. La pérdida también se mantiene
+      en niveles constantes. Se pretende volver a la estructura simple e ir añadiéndole complejidad progresivamente.
+
+
+* Intento 4º:
+
+    - Vuelta a la estructura inicial del modelo
+    - Establecimiento del batch size a 256 de nuevo
+
+    RESULTADOS: Mejor crecicmiento del accuracy del modelo, aunque la ejecución ha sido cortada por el early stopping. 
+    Se decide volver a establecer la paciencia de ese callback a 40 para que no vuelva a ocurrir.
+
+* Intento 5º:
+
+    - Se añaden algunas capas Dense mcon más neuronas para darle más capacidad de generalización al modelo (c, 200, 100, 50, c)
+    - Se resetea la paciencia del early stopping a 40 épocas de nuevo.
+
+    RESULTADOS: El rendimiento de la red vuelve a estancarse en términos de accuracy y reducción de pérdida. Surge la idea de que
+    quizá merezca más la pena emplear modelos más simples en número de neuronas o de capas, a pesar de que el modelo actual 
+    no posee una profundidad o complejidad elevada para un problema de visión por computador. Otra alternativa barajada es que 
+    quizá la red necesita más épocas para comenzar  a generalizar bien, algo que realmente tampoco posee mucho sentido, porque
+    si todo estuviera bien, la precisión del modelo crecería, aunque lo hiciera poco a poco.
+
+* Intento 5º:
+
+    - Volver a una estructura simple con Flatten y Denses: c, c 
+
+    RESULTADOS: El modelo vuelve a no aprender nada, ni supera el 20% de accuracy. Se pretende ahora probar simplemente con una capa
+    con muchas más neuronas de entrada que el número de categorias. Lo malo de hacer eso es que se introducirían demasiados
+    parámetros, ya que es la capa que se une con la capa Flatten. Como consecuencia, se estudian otras soluciones que reduzcan 
+    el tiempo de entrenamiento.
+
+
+* Intento 6º:
+
+    - Estructura Dense: c, 100c, 75c, 50c, 30c, 15c y c. 'Relu' y Dropout 0.5 para compensar el númeor de neuronas.
+    - Batch size a 512 para explotar las capacidades de la GPU.
+
+    RESULTADOS: Otra vez, los resultados de accuracy rondan el 20% en todo momento, sin ascender de esa cifra. Esta impasibidad del
+    rendimiento de los modelos propuestos a pesar de los notorios cambios introducidos en ellos sugiere que quizá el problema resida
+    en los datos que éste acepta al entrenar. Se ha pensado en una estrategia de normalización de las imágenes. Primero se probará
+    a convertir todos sus valores a un rango de -1 y 1.
+
+* Intento 7º:
+
+    - Normalización de los datos de entrada entre valores de -1 y 1.
+    - Dropout de las capas Dense bajado a 0.2 para hacer que la red pueda aprender más patrones (parecía que no llegaba ni a 
+      aprender en ejecuciones anteriores).
+    - También se bajó la tasa de aprendizaje de 0.001 a 0.00001 para tratar de mejorar la tasa de aprendizaje.
+
+    RESULTADOS: Se consiguió alcanzar un rendimiento de alrededor del 30% en términos de accuracy, algo que era inadvertido 
+    hasta este momento a raíz de las modificaciones del modelo inicial de una sola capa.
+
+* Intento 8º:
+
+  - Se mantienen todas las modificaciones anteriores, eliminando la normalización entre -1 y 1 para ver qué impacto verdadero
+  tenía ese proceso.
+
+  RESULTADOS: Volvió a menguar el rendimiento del modelo al 20% como en pasadas ocasiones. Quedó reafirmada la importancia de 
+  la normalización previa en las imágenes.
+
+* Intento 8º:
+
+  - Se reintroduce la normalización [-1,1]
+  - Se elimina el dropout del modelo.
+
+   RESULTADOS: Se recupera el 30% de accuracy general, llegando hasta el 37% al final. Se piensa en aumentar la complejidad del 
+   modelo manteniendo las capas sin Dropout.
+
+* Intento 9º:
+
+  - Se duplica la arquitectura: 
+
+  RESULTADOS: accuracy: 0.4312 - loss: 1.7637 - val_accuracy: 0.3297 - val_loss: 2.2040 Se supera el 43% en el accuracy del 
+  set de entrenamiento, aunque no se sobrepasa el 35% en el conjunto de validación. Esto indica el sobreajuste de la red, por lo
+  que se consideran dos alternativas. O bien se intenta incrementar al máximo el rendimiento del modelo sobre el conjunto train y
+  después se reduce el sobreajuste con regularización, o bien se hace ésto último desde el comienzo.
+
+ 
+* Intento 10º:
+
+  - Se triplica la arquitectura (se tomó la primera opción)
+
+  RESULTADOS: Se ha reducido el rendimiento (aproximadamente queda en 37%). Se buscará otra vía.
+
+
+* Intento 11º:
+
+  - Vuelta a la arquitectura básica. Se mantienen los cambios de learning rate, batch size, dropout, normalización, etc.
+    
+  RESULTADOS: Se consigue un rendimiento peor que con el modelo inicial, alrededor del 35% de accuracy en el conjunto de 
+  entrenamiento. Se cree que podría aumentarse un poco el learning rate, y ver además cómo afecta eso a modelos más
+  complejos de nuevo.
+
+* Intento 12º:
+
+  - Se aumentó el learning rate a 5*1e-4, y se eliminó el argumento del optimizador Adam llamado "clipnorm"
+
+  RESULTADOS: accuracy en entrenamiento -> 41%, y en validation -> 29% (claro overfitting)
+    
+* Intento 13º:
+
+  - Se repitió la ejecución anterior, pero esta vez con el modelo complejo que mejor resultados trajo (el de la iteración
+    9). Fue concebida la idea de, en caso de presentar buen comportamiento, prolongar el entrenamiento más allá de las 20 
+    épocas usadas como límite hasta el momento.
+
+  RESULTADOS: Se alcanzó de nuevo el 43% de accuracy, pero sin ascender del 34% del mismo en validación. Sigue barajándose
+  la idea de fomentar el overfitting de la red al máximo para después tratar de reducirlo.
+
+
+* Intento 14º:
+
+  - Se redujo el batch size a 128
+  - Se reestablecieron los valores del optimizador Adam original con learning rate 1e-4
+    Adam(learning_rate=1e-4, beta_1=0.9, beta_2=0.999, epsilon=1e-8, amsgrad=True, clipnorm=1.0)
+
+  RESULTADOS: accuracy: 0.4767 - loss: 1.4549 - val_accuracy: 0.3485 - val_loss: 2.1784
+
+* Intento 15º:
+
+  - Se devuelve el Dropout entre capas Dense a 0.15
+  - Se reduce la paciencia para bajar el learning rate a 5 épocas en lugar de 10
+
+  RESULTADOS: accuracy: 0.3263 - loss: 2.0931 - val_accuracy: 0.3391 - val_loss: 2.0957
+
+* Intento 16º:
+
+  - Se sube el learning rate a 1e-3
+
+  RESULTADOS: Se produce un estancamiento del modelo en 28% de accuracy. Se intentará usar menos 
+  Dropout.
+
+* Intento 17º:
+
+  - Se bajan los Dropouts a 0.05
+
+  RESULTADOS: Se logra reducir la distacia entre el accuracy en el conjunto de entrenamiento y el de validación, pero 
+  los valores en ambos casos siguen siendo muy reducidos (aproximadamente un 34%-35%). Se probará con una red más simple 
+  para ver si ahí se encuentra la clave.
+
+* Intento 18º:
+
+  - Estructura de la red: c c c c c c c c c c c c 
+  - Se mantiene el Dropout a 0.05
+
+  RESULTADOS: Ningún tipo de mejora, se mantienen las tendencias. Se explorarán cambios con más impacto.
+
+
+* Intento 19º:
+
+  - Se sube el batch size a 256
+  - Cambio en el optimizador Adam por uno RMSprop para intentar reducir el overfitting potencialmente causado por
+    el momento del optimizador anterior
+  - Vuelta a la arquitectura de 100c, 75c, 50c, 30c, 15c y c (duplicada) neuronas en la zona de capas Dense
+
+  RESULTADOS: Los resultados crecen de manera muy lenta, aunque se deja a raya el sobreajuste. Se optará por redes más simples
+  dado que queda visto que un mayor número de neuronas no es la alterbnativa correcta. Además se piensa en reducir la complejidad
+  de la primera capa Dense conectada a la Flatten de alguna manera.
+
+* Intento 20º:
+
+  - Volvió a emplearse la red inicial para analizar de nuevo su evolución con las gráficas de tensorboard e intentar sacar
+    más conocimiento.
+
+  RESULTADOS: Se revisaron las gráficas y se llegó a la conclusión de que modelos simples funcionan mejor que los más complejos:
+  se consiguió un accuracy máximo de alrededor del 48% en training y del 46% en validation, nunca antes conseguido por las 
+  propuestas derivadas de este modelo inicial. Se pretende explotar el buen rendimiento de él con pequeñas variaciones 
+  como el tratamiento de los datos de entrada o el optimizador.
+
+  Lo raro de esto es que en la época en la que s ealcanza el mejor resultado para la validación, el accuracy en este set es más
+  alto que en el de entrenamiento, algo que carece de sentido. Pensamos que puede deberse simplemente al azar, pero de lo que
+  no hay duda es de que este tipo de redes neuronales se comportan mejor que las complejas con muchas capas concatenadas.
+
+* Intento 21º:
+
+  - Cambio total de la estructura. Se pretendía reducir la complejidad en términos de parámtros a ajustar por el modelo causada
+    por la conexión de la capa Flatten con la primera Dense de la estructura inicial. La red usada fue: MaxPooling2D (2*2), 
+    MaxPooling2D (4*4), con una secuencia de capas Dense. Se utilizó Dropout y relu como función de activación. 
+   
+  - Se empleó la normalización de las entradas entre [-1,1], pues vimos que ayuda en este enfoque.
+
+  RESULTADOS: Sorprendenetemente, se llegaron a valores de precisión como este en menos de 20 épocas -> accuracy: 0.6400 - 
+  loss: 0.9674 - val_accuracy: 0.4008 - val_loss: 2.2575. A pesar del claro overfitting, el modelo demostraba una capacidad 
+  suficiente para detectar patrones de las imágenes. Si bien es cierto que podría haberse intentado reducir su sobreentrenamiento, 
+  se descartó esta alternativa al no estar seguros de que las capas de Pooling estuvieran permitidas en esta fase del proyecto.
+
+
+* Intento 22º:
+
+  - Se añadió BatchNorm
+  - Se redujo el batch size a 64 (con batch size altos se formaban picos en las tendencias de accuracy y loss)
+  - Se eliminó la normalización entre -1 y 1 de las imágenes
+  - Se subió el Dropout a 0.3
+
+
+  RESULTADOS: A pesar de que se obtuvieron resultados de accuracy en el entrenamiento de más del 60% y en torno al 54% en validación,
+  al presentar las predicciones del conjunto test a la competición, se obtuvo sólo un 46%. Esto nos hizo ver que, quizá, en entre
+  esas imágenes habría unas proporciones de clases diferentes, priorizando aquellas en las que nuestro modelo más fallaba: las
+  que a su vez contaban con menos ejemplos. Por esa misma razón, se comenzó a idear una estrategia de data augmentation específica
+  para dichas clases, dejando intacta la cantidad de imágenes para las clases mejor clasificadas.
+   
+* Intento 23º:
+
+  - Se introdujo el data augmentation (todas las clases con menos de 1000 imágenes alcanzaron esa cifra)
+
+  {'Cargo plane': 1000, 'Helicopter': 1000, 'Small car': 4290, 'Bus': 2155, 'Truck': 2746, 'Motorboat': 1069, 
+  'Fishing vessel': 1000, 'Dump truck': 1236, 'Excavator': 1000, 'Building': 4689, 'Storage tank': 1469, 
+  'Shipping container': 1523}
+
+
+  RESULTADOS: Best validation model: epoch 20  - val_accuracy 0.5401207804679871
+
+  Si bien es cierto que en las 20 épocas se consigue un nivel de precisión en la validación semejante al del caso anterior,
+  se ha reducido en gran medida el overfitting, pues en el entrenamiento sólo se llega al 0.5718. Se pretende dejar el 
+  entrenamiento durante más épocas, y en caso de que haya más overfitting, simplemente subir el dropout.
+  También se baraja el uso de nuevo de la normalización de imágenes entre [-1,1]
+
+    Mean Accuracy: 54.012%
+    Mean Recall: 45.680%
+    Mean Precision: 57.702%
+    > Cargo plane: Recall: 66.000% Precision: 95.652% Specificity: 99.865% Dice: 78.107%
+    > Helicopter: Recall: 78.000% Precision: 84.783% Specificity: 99.369% Dice: 81.250%
+    > Small car: Recall: 89.977% Precision: 57.101% Specificity: 84.648% Dice: 69.864%
+    > Bus: Recall: 45.116% Precision: 44.292% Specificity: 94.199% Dice: 44.700%
+    > Truck: Recall: 13.455% Precision: 30.081% Specificity: 95.791% Dice: 18.593%
+    > Motorboat: Recall: 10.280% Precision: 42.308% Specificity: 99.322% Dice: 16.541%
+    > Fishing vessel: Recall: 29.000% Precision: 67.442% Specificity: 99.369% Dice: 40.559%
+    > Dump truck: Recall: 33.065% Precision: 45.055% Specificity: 97.721% Dice: 38.140%
+    > Excavator: Recall: 53.000% Precision: 50.000% Specificity: 97.610% Dice: 51.456%
+    > Building: Recall: 81.023% Precision: 51.144% Specificity: 80.368% Dice: 62.706%
+    > Storage tank: Recall: 17.007% Precision: 73.529% Specificity: 99.585% Dice: 27.624%
+    > Shipping container: Recall: 32.237% Precision: 51.042% Specificity: 97.830% Dice: 39.516%
+
+  Los resultados corroboran las sospechas, aumenta la capacidad del modelo de generalizar mejor las características
+  de aquellas clases que antes no había podido aprender gracias a la introducción de más ejemplos de ellas. Gracias a la 
+  matriz de confusión, se aprecia que la precisión de casi todas las clases ha aumentado. Sin embargo, existen casos en los 
+  que empero: Motorboat, Storage tank y Shipping container. Además, se siguen confundiendo ciertas clases con Building:
+  Storage tank, Shipping container, Fishing vessel, Cargo plane, Truck y Excavator. Esto mismo ocurre también con 
+  Small car: se confunden las clases Bus, Truck y Motorboat.
+
+  Se ha pensado en aumentar aún más el número de imágenes referidas a las clases comentadas para darle al modelo más
+  recursos con los que aprender a generalizar todas las clases sin importar las proporciones en las que luego se presenten
+  en el test. 
+
+* Intento 24º:
+
+  - Se repitió el proceso de data augmentation, pero esta vez focalizada en clases específicas que no eran bien diferenciadas por
+  el modelo en el intento anterior. En concreto, se añadieron aproximadamente unas 350 imágenes extra de las siguientes clases:
+  ['Cargo plane', 'Bus', 'Truck', 'Motorboat', 'Fishing vessel', 'Excavator', 'Storage tank', 'Shipping container'].
+
+  RESULTADOS: Best validation model: epoch 18  - val_accuracy 0.6064492464065552
+
+  Mean Accuracy: 60.645%
+  Mean Recall: 57.935%
+  Mean Precision: 65.577%
+  > Cargo plane: Recall: 82.716% Precision: 92.414% Specificity: 99.571% Dice: 87.296%
+  > Helicopter: Recall: 93.333% Precision: 83.761% Specificity: 99.276% Dice: 88.288%
+  > Small car: Recall: 87.179% Precision: 56.667% Specificity: 87.565% Dice: 68.687%
+  > Bus: Recall: 64.400% Precision: 45.609% Specificity: 92.255% Dice: 53.400%
+  > Truck: Recall: 18.710% Precision: 63.043% Specificity: 98.594% Dice: 28.856%
+  > Motorboat: Recall: 45.070% Precision: 66.667% Specificity: 98.763% Dice: 53.782%
+  > Fishing vessel: Recall: 33.523% Precision: 72.840% Specificity: 99.138% Dice: 45.914%
+  > Dump truck: Recall: 25.000% Precision: 40.789% Specificity: 98.273% Dice: 31.000%
+  > Excavator: Recall: 73.057% Precision: 72.308% Specificity: 97.871% Dice: 72.680%
+  > Building: Recall: 76.333% Precision: 54.573% Specificity: 86.814% Dice: 63.644%
+  > Storage tank: Recall: 46.703% Precision: 73.913% Specificity: 98.822% Dice: 57.239%
+  > Shipping container: Recall: 49.198% Precision: 64.336% Specificity: 97.994% Dice: 55.758%
+
+  Tras revisar de nuevo la matriz de confusión, se ve que sólo se empeora un porcentaje despreciable en la clase Small car,
+  Building y Truck. En todas las demás, se hace un avance bastante significativo. Debido a estos resultados, junto con el 
+  hecho de que se percibió un ligero sobreajuste en el modelo, se tomó la decisión de aumentar las épocas de entrenamiento,
+  darle una capa densa más a la red y a la vez subir en 0.05 (hasta el 0.35) el Dropout de ellas. En caso de no obtener mejores
+  predicciones, quizá se opte por repetir el data augmentation en alguna otra clase concreta (como Truck, Dump truck, Fishing Vessel,
+  Storage tank y Shipping container)
+  
+* Intento 25º:
+
+  - Se añade una capa Densa más
+  - Se establece el número de épocas a 40
+  - Se incrementa el Dropout entre capas Densas hasta el 0.35
+  - Se focaliza el data augmentatio sobre todo en ciertas clases que causan la mayor tasa de fallos
+
+  RESULTADOS: Best validation model: epoch 37  - val_accuracy 0.652986466884613
+
+  Mean Accuracy: 65.299%
+  Mean Recall: 63.434%
+  Mean Precision: 70.677%
+  > Cargo plane: Recall: 87.654% Precision: 97.260% Specificity: 99.844% Dice: 92.208%
+  > Helicopter: Recall: 93.333% Precision: 100.000% Specificity: 100.000% Dice: 96.552%
+  > Small car: Recall: 89.044% Precision: 58.499% Specificity: 88.217% Dice: 70.610%
+  > Bus: Recall: 61.200% Precision: 50.662% Specificity: 93.990% Dice: 55.435%
+  > Truck: Recall: 23.871% Precision: 50.685% Specificity: 97.024% Dice: 32.456%
+  > Motorboat: Recall: 41.549% Precision: 76.623% Specificity: 99.304% Dice: 53.881%
+  > Fishing vessel: Recall: 72.159% Precision: 96.212% Specificity: 99.804% Dice: 82.468%
+  > Dump truck: Recall: 28.226% Precision: 41.667% Specificity: 98.119% Dice: 33.654%
+  > Excavator: Recall: 84.456% Precision: 74.429% Specificity: 97.792% Dice: 79.126%
+  > Building: Recall: 76.333% Precision: 60.269% Specificity: 89.558% Dice: 67.357%
+  > Storage tank: Recall: 46.703% Precision: 80.189% Specificity: 99.176% Dice: 59.028%
+  > Shipping container: Recall: 56.684% Precision: 61.628% Specificity: 97.404% Dice: 59.053%
+
+  Se superan todos los resultados anteriores, pues se mejora en la clasificación de todas y cada una de las clases
+  con las que se trabaja en este problema. Siguen existiendo algunas confusiones del modelo entre clases, pero la mayoría
+  resultan lógicas, como las de Truck y Dump Truck entre sí, o ambas clases y Bus con respecto hacia Small car. No obstane,
+  se han detectado otras confusiones no tan lógicas, como las de la clase Motorboat hacia la clase Bus; de las de las clases 
+  Shipping container y Storage tank hacia Building. Puede que la mejora de la red pase por incrementar el número de datos de 
+  ellas.
+
+  ACTUALIZACIÓN: Se ha subido el archivo con las predicciones del modelo y el conjunto de test ha devuelto un 46% de accuracy.
+  Eso nos hizo caer en la cuenta de que el data augmentation debía realizarse únicamente en el conjunto de entrenamiento, y no 
+  en el de validación. Hasta este momento, se conseguían las nuevas imágenes, se unían al resto, y se separaba el conjunto en el 
+  de entrenamiento y validación.
+
+
+
+* Intento 26º:
+
+  - Se corrigió el codigo para hacer data augmentation solo con las imágenes de entrenamiento, no con las de validación.
+  - Se eliminó una capa Dense del modelo para reducir el overfitting.
+  - Se decrementó la cantidad de imágenes generadas durante el proceso de data augmentation.
+
+  RESULTADOS: Best validation model: epoch 20  - val_accuracy 0.5119270086288452
+
+  Mean Accuracy: 51.193%
+  Mean Recall: 38.190%
+  Mean Precision: 50.950%
+  > Cargo plane: Recall: 69.291% Precision: 80.734% Specificity: 99.494% Dice: 74.576%
+  > Helicopter: Recall: 7.143% Precision: 25.000% Specificity: 99.930% Dice: 11.111%
+  > Small car: Recall: 89.394% Precision: 57.026% Specificity: 83.090% Dice: 69.632%
+  > Bus: Recall: 41.763% Precision: 37.190% Specificity: 92.094% Dice: 39.344%
+  > Truck: Recall: 17.851% Precision: 31.715% Specificity: 94.339% Dice: 22.844%
+  > Motorboat: Recall: 17.757% Precision: 56.716% Specificity: 99.286% Dice: 27.046%
+  > Fishing vessel: Recall: 27.660% Precision: 63.934% Specificity: 99.468% Dice: 38.614%
+  > Dump truck: Recall: 2.834% Precision: 53.846% Specificity: 99.851% Dice: 5.385%
+  > Excavator: Recall: 57.595% Precision: 42.523% Specificity: 97.013% Dice: 48.925%
+  > Building: Recall: 78.145% Precision: 52.320% Specificity: 79.988% Dice: 62.676%
+  > Storage tank: Recall: 18.027% Precision: 56.989% Specificity: 98.995% Dice: 27.390%
+  > Shipping container: Recall: 30.820% Precision: 53.409% Specificity: 97.935% Dice: 39.085%
+
+  Hay algunas clases en las que se incurre en muchos errores: Helicopter, Fishing Vessel, Storage tank, Shipping
+  container y Motorboat. Se intentará enfocar el data augmentation a ellas, con cantidades arbitrarias de imágenes según el caso.
+
+* Intento 27º:
+
+  - Se ponene números arbitrarios en las cantidades a generar duarnte el data agumentation
+  - Se reintroduce la normalización de valores de imágenes entre [-1,1]
+
+  RESULTADOS: 
